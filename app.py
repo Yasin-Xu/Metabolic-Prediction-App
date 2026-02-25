@@ -6,7 +6,19 @@ import os
 # --- 1. 页面基本设置 ---
 st.set_page_config(page_title="代谢异常风险预测系统", page_icon="🩺", layout="centered")
 st.title("🩺 代谢异常风险在线预测系统")
-st.markdown("本系统基于多模型融合算法构建，用于评估代谢异常的发生风险。请填写下方患者临床指标。")
+st.markdown("本系统基于多模型融合算法构建，用于评估受试者**未来 3 年内**发生代谢异常的风险。请填写下方患者临床指标。")
+
+# 💡 新增1：代谢异常的临床定义与判定标准（折叠面板）
+with st.expander("📚 点击查看：本研究中【代谢异常】的定义与判定标准", expanded=False):
+    st.markdown("""
+    本研究的**主要终点事件**定义为：受试者自基线访视起 **3年（36个月）内**，首次发生新发代谢异常。
+    
+    其**判定标准**为：在血压、血糖和血脂三类核心代谢组分中出现**两类及以上**异常。具体指标如下：
+    
+    * **(1) 血压异常**：若非同日两次测量的血压均达到或超过 130/85 mmHg，或明确出现高血压诊断并伴有降压药物处方，则判定为事件发生；若受试者自述被医生告知血压升高，或已规律使用降压药物，同样视为血压异常事件。
+    * **(2) 糖代谢异常**：若检测提示空腹血糖（FPG）≥ 5.6 mmol/L，或记录有新的“糖尿病前期”或“2型糖尿病”诊断并伴随降糖药物处方，则判定为糖代谢异常；若受试者自述被提示血糖升高，或已开始规律服用降糖药物，也计入糖代谢异常事件。
+    * **(3) 血脂异常**：若血脂谱任一指标出现异常，即甘油三酯（TG）≥ 1.7 mmol/L、HDL-C（男性＜1.0 mmol/L，女性＜1.3 mmol/L）、低密度脂蛋白胆固醇（LDL-C）≥ 3.4 mmol/L 或总胆固醇（TC）≥ 5.2 mmol/L，或出现新的血脂异常诊断及降脂药物处方，则判定为血脂异常；若受试者报告近期体检提示血脂异常，或自述已规律服用降脂药物，则同样认定为事件。
+    """)
 
 # --- 2. 模型定义与字典映射 ---
 MODEL_FEATURES = {
@@ -23,7 +35,6 @@ MODEL_FILES = {
     "模型D（基准模型）": "lr_model.pkl"
 }
 
-# 🎯 分类变量的具体定义
 OPTIONS_MAP = {
     '性别': {"1 (男性)": 1, "0 (女性)": 0},
     '吸烟史': {"0 (无吸烟史)": 0, "1 (有吸烟史)": 1},
@@ -36,7 +47,6 @@ OPTIONS_MAP = {
     }
 }
 
-# 🎯 强制指定类别的显示顺序
 CATEGORY_ORDER = [
     '👤 基本人口学及生活方式',
     '📏 体格检查指标',
@@ -44,7 +54,6 @@ CATEGORY_ORDER = [
     '🩸 实验室指标'
 ]
 
-# 🎯 指标的分类、单位与合理的临床默认值
 FEATURE_DICT = {
     '年龄': {'cat': '👤 基本人口学及生活方式', 'unit': '岁', 'def': 50.0},
     '性别': {'cat': '👤 基本人口学及生活方式', 'unit': '', 'def': None},
@@ -94,7 +103,6 @@ selected_model_name = st.sidebar.selectbox("请选择要使用的预测模型：
 st.sidebar.markdown("---")
 st.sidebar.info(f"正在使用：\n**{selected_model_name}**")
 
-# 💡 新增：精简版的模型介绍
 with st.sidebar.expander("ℹ️ 查看各模型适用场景说明", expanded=True):
     st.markdown("""
     * **模型A（全变量）**：纳入全部多维度指标，用于评估全量信息条件下的预测性能上限。
@@ -137,20 +145,17 @@ with st.form("prediction_form"):
 if submitted:
     processed_data = input_data.copy()
     
-    # 🎯 后台自动转化
     if '身体总水分/去脂体重' in processed_data:
         processed_data['身体总水分/去脂体重'] = processed_data['身体总水分/去脂体重'] * 100
 
     df = pd.DataFrame([processed_data])
     
-    # 🎯 模型列名隐形修复
     RENAME_FOR_MODEL = {
         '躯干脂肪比率': '躯干脂肪百分比',
         '下肢脂肪比率': '下肢脂肪百分比'
     }
     df = df.rename(columns=RENAME_FOR_MODEL)
     
-    # 🎯 强制特征排序对齐
     original_feature_order = MODEL_FEATURES[selected_model_name]
     aligned_feature_order = [RENAME_FOR_MODEL.get(f, f) for f in original_feature_order]
     df = df[aligned_feature_order]
@@ -162,22 +167,32 @@ if submitted:
         else:
             model = joblib.load(model_path)
             pred_class = model.predict(df)[0]
-            
-            # 💡 关键修复：用 float() 强制转换格式，避免进度条浮点数报错
             pred_proba = float(model.predict_proba(df)[0][1])
             
             st.markdown("---")
             st.subheader("📊 风险预测评估结果")
             
             if pred_proba < 0.3:
-                st.success(f"**✅ 低风险**：该患者目前的代谢指标处于相对安全范围。")
-                st.progress(pred_proba, text=f"风险概率：{pred_proba:.2%}")
+                st.success(f"**✅ 低风险**：该受试者未来 3 年内发生代谢异常的风险较低。")
+                st.progress(pred_proba, text=f"3年内发病概率：{pred_proba:.2%}")
             elif pred_proba < 0.6:
-                st.warning(f"**⚠️ 中等风险**：该患者具有一定的代谢异常风险，建议生活方式干预。")
-                st.progress(pred_proba, text=f"风险概率：{pred_proba:.2%}")
+                st.warning(f"**⚠️ 中等风险**：该受试者未来 3 年内发生代谢异常的风险处于临界状态，建议生活方式干预。")
+                st.progress(pred_proba, text=f"3年内发病概率：{pred_proba:.2%}")
             else:
-                st.error(f"**🚨 高风险**：该患者发生代谢异常的可能性很大，建议临床密切关注。")
-                st.progress(pred_proba, text=f"风险概率：{pred_proba:.2%}")
+                st.error(f"**🚨 高风险**：该受试者未来 3 年内发生代谢异常的可能性很大，建议临床密切关注。")
+                st.progress(pred_proba, text=f"3年内发病概率：{pred_proba:.2%}")
+
+            # 💡 新增2：风险评估结果的详细说明框
+            st.info("""
+            **💡 评估结果说明：**
+            * **指标意义**：上方百分比代表该受试者在**未来 3 年内**发生上述“代谢异常”事件的综合概率。
+            * **计算逻辑**：由后台机器学习算法综合您填写的基线数据，经过特征权重计算与非线性映射，输出的一个 0%~100% 的发病倾向得分。
+            * **风险分层依据**：
+                * **🟢 低风险（< 30%）**：模型研判其 3 年内发病概率较低，建议继续保持良好生活方式。
+                * **🟡 中等风险（30% - 60%）**：模型研判受试者处于发病临界区间或已具备部分危险因素，建议开始生活方式干预并定期随访。
+                * **🔴 高风险（≥ 60%）**：具备强烈的代谢异常进展倾向，建议由临床医生进一步评估，必要时进行医疗干预。
+            * *(注：以上阈值为本系统设定参考，具体临床决策请结合实际诊疗规范)*
+            """)
 
     except Exception as e:
         st.error(f"❌ 模型运行出错：{str(e)}")
