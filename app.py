@@ -13,7 +13,7 @@ st.set_page_config(page_title="代谢异常预测系统", page_icon="🩺", layo
 
 # 模型中的字段名均使用训练时保存的原始名称，展示名称单独放在 FEATURE_DICT 中。
 MODEL_REGISTRY = {
-    "随访模型A（全变量 LASSO）": {
+    "随访模型A（全变量）": {
         "file": "lasso_model.pkl",
         "endpoint": "follow_up",
         "features": [
@@ -36,7 +36,7 @@ MODEL_REGISTRY = {
         ],
         "description": "全量信息条件下的 3 年随访风险模型。",
     },
-    "随访模型B（体成分 SVM）": {
+    "随访模型B（体成分）": {
         "file": "svm_model.pkl",
         "endpoint": "follow_up",
         "features": [
@@ -57,7 +57,7 @@ MODEL_REGISTRY = {
         ],
         "description": "无需抽血、依赖体成分数据的 3 年随访风险模型。",
     },
-    "随访模型C（临床常规 XGBoost）": {
+    "随访模型C（临床常规）": {
         "file": "xgb_model.pkl",
         "endpoint": "follow_up",
         "features": [
@@ -86,13 +86,13 @@ MODEL_REGISTRY = {
         ],
         "description": "使用常规体检和生化数据的 3 年随访风险模型。",
     },
-    "随访模型D（人口学基础 Logistic）": {
+    "随访模型D（人口学基础）": {
         "file": "lr_model.pkl",
         "endpoint": "follow_up",
         "features": ["性别", "年龄", "运动频率", "吸烟史", "饮酒史", "体重指数", "腰臀比"],
         "description": "仅使用人口学、生活方式、BMI 和腰臀比的 3 年随访基准模型。",
     },
-    "横断面模型E（人口学+体成分 LASSO）": {
+    "横断面模型E（人口学+体成分）": {
         "file": "cross_sectional_bodycomp_lasso.pkl",
         "endpoint": "cross_sectional",
         "features": [
@@ -120,7 +120,7 @@ MODEL_REGISTRY = {
         "use_case": "适合已经完成生物电阻抗/体成分检测的受试者，用于考察体成分信息是否可能提供额外判别信息。",
         "measurement_requirement": "需要年龄、性别和生活方式信息，身高/体重、腰围/臀围，以及同一次体成分检测报告。",
     },
-    "横断面模型F（人口学基础 LASSO）": {
+    "横断面模型F（人口学基础）": {
         "file": "cross_sectional_basic_lasso.pkl",
         "endpoint": "cross_sectional",
         "features": ["性别", "年龄", "运动频率", "吸烟史", "饮酒史", "体重指数", "腰臀比"],
@@ -257,16 +257,6 @@ FEATURE_GUIDANCE = {
     "身体总水分/去脂体重": "TBW/FFM = 身体总水分 ÷ 去脂体重。网页填写0–1小数，例如报告为73.4%时填写0.734。",
 }
 
-TERM_LABELS = {
-    "性别_1.0": "性别（男性 vs 女性）",
-    "吸烟史_1.0": "有吸烟史（vs 无）",
-    "饮酒史_1.0": "有饮酒史（vs 无）",
-    "运动频率_1.0": "运动频率：1–2次/周（vs <1次/周）",
-    "运动频率_2.0": "运动频率：3–5次/周（vs <1次/周）",
-    "运动频率_3.0": "运动频率：>5次/周（vs <1次/周）",
-}
-
-
 @st.cache_resource(show_spinner=False)
 def load_model_bundle(filename):
     artifact = joblib.load(APP_DIR / filename)
@@ -286,58 +276,23 @@ def display_name(feature_name):
     return info["label"] or feature_name
 
 
-def selected_term_label(term_name):
-    if term_name in TERM_LABELS:
-        return TERM_LABELS[term_name]
-    if term_name in FEATURE_DICT:
-        return display_name(term_name)
-    return term_name
-
-
-def show_cross_sectional_model_overview(config):
-    with st.expander("🧭 横断面模型说明与内部验证表现", expanded=True):
-        st.markdown(
-            f"**用途**：{config['use_case']}  \n"
-            f"**测量要求**：{config['measurement_requirement']}  \n"
-            "**结局含义**：输出为当前检查时点存在代谢异常的估计概率，不是未来发病风险。"
-        )
-
-        model_path = APP_DIR / config["file"]
-        if not model_path.exists():
-            st.warning(f"尚未找到模型文件：{model_path.name}")
-            return
-
-        bundle = load_model_bundle(config["file"])
-        metadata = bundle.get("metadata", {})
-        evaluation = metadata.get("evaluation", {})
-        metrics = evaluation.get("metrics", {})
-        if metrics:
-            columns = st.columns(4)
-            columns[0].metric("ROC AUC", f"{metrics['roc_auc']:.3f}")
-            columns[1].metric("PR AUC", f"{metrics['average_precision']:.3f}")
-            columns[2].metric("灵敏度", f"{metrics['sensitivity']:.1%}")
-            columns[3].metric("特异度", f"{metrics['specificity']:.1%}")
-            st.caption(
-                f"固定20%内部测试集（n={evaluation.get('test_n', '—')}）；"
-                f"模型判别阈值为 {float(bundle.get('threshold') or 0.5):.1%}。"
-                "这些指标尚未经过独立外部验证。"
-            )
-
-        selected_terms = metadata.get("selected_terms_in_full_refit", [])
-        if selected_terms:
-            labels = [selected_term_label(row["transformed_feature"]) for row in selected_terms]
-            st.markdown("**LASSO 全样本重拟合后的非零项**：" + "、".join(labels) + "。")
-            st.caption("非零系数表示进入最终预测方程，不代表因果关系。页面仍按预先定义的候选输入集收集数据。")
-
-
 def show_cross_sectional_input_guidance(features):
     with st.expander("📐 必读：所需指标及计算/获取方法", expanded=False):
-        st.info(
-            "模型 E 的全部体成分指标应来自同一次检测；不要混用不同日期或不同设备的分段数据。"
-            "比例类指标请特别留意页面要求的是0–1小数还是百分数点。"
-            "优先读取设备导出的同名指标；必须手算时使用未圆整的原始分量。"
-            "腰围、臀围及问卷项沿用原研究体检/问卷口径。"
+        has_body_composition = any(
+            FEATURE_DICT[name]["cat"] == BODY for name in features
         )
+        if has_body_composition:
+            st.info(
+                "全部体成分指标应来自同一次检测；不要混用不同日期或不同设备的分段数据。"
+                "比例类指标请特别留意页面要求的是0–1小数还是百分数点。"
+                "优先读取设备导出的同名指标；必须手算时使用未圆整的原始分量。"
+                "腰围、臀围及问卷项沿用原研究体检/问卷口径。"
+            )
+        else:
+            st.info(
+                "人口学、生活方式、腰围和臀围等指标应沿用原研究体检/问卷口径；"
+                "BMI与腰臀比按下方公式计算。"
+            )
         for category in CATEGORY_ORDER:
             category_features = [
                 name for name in features if FEATURE_DICT[name]["cat"] == category
@@ -366,15 +321,15 @@ def show_follow_up_definition():
 def show_cross_sectional_definition():
     st.markdown(
         """
-        横断面模型的因变量直接采用工作簿中的 **“代谢异常”**（0=否，1=是）。
-        在本次数据中，它与下列四项异常的累计数 ≥2 完全一致：
+        本研究将下列四项异常中累计 **≥2 项** 定义为代谢异常：
 
         - 高血压/血压异常
         - 糖尿病/糖代谢异常
-        - 甘油三酯异常
+        - 总胆固醇异常
         - HDL-C 异常
 
-        因此，本模型输出的是 **当前存在代谢异常的估计概率**，不是未来 3 年发病风险。
+        横断面模型的因变量采用工作簿中的 **“代谢异常”**（0=否，1=是）。
+        模型输出的是 **当前存在代谢异常的估计概率**，不是未来 3 年发病风险。
         """
     )
 
@@ -393,31 +348,20 @@ def show_follow_up_result(probability):
     )
 
 
-def show_cross_sectional_result(probability, threshold, metadata):
+def show_cross_sectional_result(probability, threshold):
     is_positive = probability >= threshold
     if is_positive:
-        st.error(f"**筛查阳性倾向**：估计概率达到模型判别阈值（{threshold:.1%}）。")
+        st.error(
+            f"**筛查阳性倾向**：本次估计概率 {probability:.2%} "
+            f"≥ 模型固定判别阈值 {threshold:.1%}。"
+        )
     else:
-        st.success(f"**筛查阴性倾向**：估计概率低于模型判别阈值（{threshold:.1%}）。")
+        st.success(
+            f"**筛查阴性倾向**：本次估计概率 {probability:.2%} "
+            f"< 模型固定判别阈值 {threshold:.1%}。"
+        )
     st.progress(float(np.clip(probability, 0, 1)), text=f"当前代谢异常估计概率：{probability:.2%}")
-
-    evaluation = metadata.get("evaluation", {})
-    metrics = evaluation.get("metrics", {})
-    if metrics:
-        with st.expander("查看该横断面模型的内部验证表现", expanded=False):
-            cols = st.columns(4)
-            cols[0].metric("ROC AUC", f"{metrics['roc_auc']:.3f}")
-            cols[1].metric("灵敏度", f"{metrics['sensitivity']:.1%}")
-            cols[2].metric("特异度", f"{metrics['specificity']:.1%}")
-            cols[3].metric("Brier", f"{metrics['brier_score']:.3f}")
-            st.caption(
-                f"固定 20% 内部测试集（n={evaluation.get('test_n', '—')}）；"
-                "阈值由训练集 10 折折外预测的最大 Youden J 确定。"
-            )
-    st.info(
-        "该结果用于研究性横断面筛查，不能替代诊断。模型目前仅完成单一数据集内部验证，"
-        "临床使用前仍需独立外部验证与校准。"
-    )
+    st.info("该结果用于研究性横断面筛查，不能替代临床诊断。")
 
 
 def warn_about_extrapolation(processed_data, metadata):
@@ -454,10 +398,6 @@ if selected_config["endpoint"] == "follow_up":
     st.markdown("当前选择的是 **随访预测模型**：评估受试者未来 3 年内发生代谢异常的概率。")
 else:
     st.markdown("当前选择的是 **横断面判别模型**：评估受试者当前存在代谢异常的概率。")
-    st.warning(
-        "数据质控待确认：工作簿中的“HDL异常”标签与修正后的 HDL-C 数值不一致。"
-        "当前横断面模型严格按您指定的“代谢异常”列训练；临床使用或投稿前请先确认标签是否已随 HDL 修正而重算。"
-    )
 
 with st.expander("📚 查看本模型的结局定义", expanded=False):
     if selected_config["endpoint"] == "follow_up":
@@ -466,7 +406,6 @@ with st.expander("📚 查看本模型的结局定义", expanded=False):
         show_cross_sectional_definition()
 
 if selected_config["endpoint"] == "cross_sectional":
-    show_cross_sectional_model_overview(selected_config)
     show_cross_sectional_input_guidance(selected_config["features"])
 
 features = selected_config["features"]
@@ -550,6 +489,6 @@ if submitted:
             show_follow_up_result(probability)
         else:
             threshold = float(bundle.get("threshold") or 0.5)
-            show_cross_sectional_result(probability, threshold, bundle.get("metadata", {}))
+            show_cross_sectional_result(probability, threshold)
     except Exception as error:
         st.error(f"模型运行出错：{error}")
