@@ -8,93 +8,48 @@ import streamlit as st
 
 APP_DIR = Path(__file__).resolve().parent
 
-st.set_page_config(page_title="代谢异常预测系统", page_icon="🩺", layout="centered")
+st.set_page_config(page_title="代谢异常风险预测系统", page_icon="🩺", layout="centered")
 
 
 # 模型中的字段名均使用训练时保存的原始名称，展示名称单独放在 FEATURE_DICT 中。
 MODEL_REGISTRY = {
-    "随访模型A（全变量）": {
-        "file": "lasso_model.pkl",
-        "endpoint": "follow_up",
+    "模型A（体成分+实验室）": {
+        "file": "lab_model_a.pkl",
         "features": [
-            "下肢肌肉比率",
-            "TyG 指数",
-            "糖化血红蛋白",
             "体重指数",
-            "总胆固醇",
-            "尿素",
-            "细胞外液总量/身体总水分",
-            "γ-谷氨酰转移酶",
-            "甘油三酯",
-            "白蛋白",
-            "嗜酸性粒细胞百分比",
             "收缩压",
-            "嗜碱性粒细胞百分比",
-            "血红蛋白",
+            "下肢肌肉比率",
+            "细胞外液总量/身体总水分",
             "上肢肌肉比率",
             "下肢脂肪百分比",
-        ],
-        "description": "全量信息条件下的 3 年随访风险模型。",
-    },
-    "随访模型B（体成分）": {
-        "file": "svm_model.pkl",
-        "endpoint": "follow_up",
-        "features": [
-            "年龄",
-            "体重指数",
-            "腰臀比",
-            "体脂肪",
-            "体脂百分比",
-            "上肢肌肉比率",
-            "躯干肌肉量比率",
-            "下肢肌肉比率",
-            "躯干脂肪百分比",
-            "下肢脂肪百分比",
-            "细胞外液总量/身体总水分",
-            "吸烟史",
-            "身体总水分",
-            "身体总水分/去脂体重",
-        ],
-        "description": "无需抽血、依赖体成分数据的 3 年随访风险模型。",
-    },
-    "随访模型C（临床常规）": {
-        "file": "xgb_model.pkl",
-        "endpoint": "follow_up",
-        "features": [
-            "甘油三酯",
             "糖化血红蛋白",
-            "体重指数",
-            "TyG 指数",
-            "尿酸",
-            "门冬氨酸氨基转移酶",
-            "年龄",
-            "尿素",
-            "嗜酸性粒细胞百分比",
-            "肌酐",
-            "血红蛋白",
             "总胆固醇",
-            "嗜碱性粒细胞百分比",
-            "丙氨酸氨基转移酶",
-            "脂蛋白α测定",
-            "红细胞计数",
-            "舒张压",
-            "白细胞计数",
-            "收缩压",
-            "γ-谷氨酰转移酶",
-            "白蛋白",
-            "腰臀比",
+            "甘油三酯",
+            "TyG 指数",
         ],
-        "description": "使用常规体检和生化数据的 3 年随访风险模型。",
+        "input_features": [
+            "体重指数",
+            "收缩压",
+            "下肢肌肉比率",
+            "细胞外液总量/身体总水分",
+            "上肢肌肉比率",
+            "下肢脂肪百分比",
+            "糖化血红蛋白",
+            "总胆固醇",
+            "甘油三酯",
+            "葡萄糖",
+        ],
+        "input_limits": {
+            "体重指数": {"min": 10.0, "max": 70.0},
+            "下肢肌肉比率": {"min": 0.0001, "max": 1.0},
+            "细胞外液总量/身体总水分": {"min": 0.001, "max": 1.0},
+            "上肢肌肉比率": {"min": 0.0001, "max": 1.0},
+            "下肢脂肪百分比": {"min": 0.0001, "max": 1.0},
+        },
+        "description": "使用体格、体成分和实验室检查指标评估代谢异常风险；TyG 指数由葡萄糖和甘油三酯自动计算。",
     },
-    "随访模型D（人口学基础）": {
-        "file": "lr_model.pkl",
-        "endpoint": "follow_up",
-        "features": ["性别", "年龄", "运动频率", "吸烟史", "饮酒史", "体重指数", "腰臀比"],
-        "description": "仅使用人口学、生活方式、BMI 和腰臀比的 3 年随访基准模型。",
-    },
-    "横断面模型E（人口学+体成分）": {
+    "模型E（人口学+体成分）": {
         "file": "cross_sectional_bodycomp_lasso.pkl",
-        "endpoint": "cross_sectional",
         "features": [
             "性别",
             "年龄",
@@ -116,17 +71,12 @@ MODEL_REGISTRY = {
             "下肢脂肪百分比",
             "身体总水分/去脂体重",
         ],
-        "description": "使用人口学、生活方式、BMI、腰臀比和无创体成分指标，判断当前代谢异常。",
-        "use_case": "适合已经完成生物电阻抗/体成分检测的受试者，用于考察体成分信息是否可能提供额外判别信息。",
-        "measurement_requirement": "需要年龄、性别和生活方式信息，身高/体重、腰围/臀围，以及同一次体成分检测报告。",
+        "description": "使用人口学、生活方式、BMI、腰臀比和无创体成分指标评估代谢异常风险。",
     },
-    "横断面模型F（人口学基础）": {
+    "模型F（人口学基础）": {
         "file": "cross_sectional_basic_lasso.pkl",
-        "endpoint": "cross_sectional",
         "features": ["性别", "年龄", "运动频率", "吸烟史", "饮酒史", "体重指数", "腰臀比"],
-        "description": "仅使用人口学、生活方式、BMI 和腰臀比，判断当前代谢异常。",
-        "use_case": "适合没有体成分仪时进行简化筛查，也可作为横断面模型 E 的基础对照模型。",
-        "measurement_requirement": "仅需年龄、性别和生活方式信息，以及身高、体重、腰围和臀围。",
+        "description": "仅使用人口学、生活方式、BMI 和腰臀比评估代谢异常风险。",
     },
 }
 
@@ -159,6 +109,7 @@ def feature(
     label=None,
     decimals=2,
     model_scale=1.0,
+    min_value=0.0,
     max_value=None,
 ):
     return {
@@ -168,6 +119,7 @@ def feature(
         "label": label,
         "decimals": decimals,
         "model_scale": model_scale,
+        "min": min_value,
         "max": max_value,
     }
 
@@ -185,7 +137,7 @@ FEATURE_DICT = {
     "饮酒史": feature(DEMOGRAPHIC),
     "体重指数": feature(PHYSICAL, "kg/m²", 25.0, max_value=100.0),
     "腰臀比": feature(PHYSICAL, "WHR", 0.93, decimals=2, max_value=2.0),
-    "收缩压": feature(PHYSICAL, "mmHg", 120.0, decimals=0),
+    "收缩压": feature(PHYSICAL, "mmHg", 120.0, decimals=0, min_value=80.0, max_value=250.0),
     "舒张压": feature(PHYSICAL, "mmHg", 80.0, decimals=0),
     "体脂肪": feature(BODY, "kg", 19.1, label="体脂肪量"),
     "体脂百分比": feature(BODY, "%", 28.3, max_value=100.0),
@@ -214,8 +166,9 @@ FEATURE_DICT = {
         model_scale=100.0,
         max_value=1.0,
     ),
-    "甘油三酯": feature(LAB, "mmol/L", 1.5),
-    "糖化血红蛋白": feature(LAB, "%", 5.5),
+    "甘油三酯": feature(LAB, "mmol/L", 1.5, min_value=0.01, max_value=50.0),
+    "葡萄糖": feature(LAB, "mmol/L", 5.5, min_value=0.01, max_value=50.0),
+    "糖化血红蛋白": feature(LAB, "%", 5.5, min_value=3.0, max_value=20.0),
     "TyG 指数": feature(LAB, "", 8.5),
     "尿酸": feature(LAB, "μmol/L", 300.0),
     "门冬氨酸氨基转移酶": feature(LAB, "U/L", 20.0),
@@ -223,7 +176,7 @@ FEATURE_DICT = {
     "嗜酸性粒细胞百分比": feature(LAB, "%", 2.0),
     "肌酐": feature(LAB, "μmol/L", 70.0),
     "血红蛋白": feature(LAB, "g/L", 135.0),
-    "总胆固醇": feature(LAB, "mmol/L", 4.5),
+    "总胆固醇": feature(LAB, "mmol/L", 4.5, min_value=0.01, max_value=20.0),
     "嗜碱性粒细胞百分比": feature(LAB, "%", 0.5),
     "丙氨酸氨基转移酶": feature(LAB, "U/L", 20.0),
     "脂蛋白α测定": feature(LAB, "mg/L", 150.0),
@@ -234,7 +187,7 @@ FEATURE_DICT = {
 }
 
 
-# 横断面模型输入说明。所有体成分指标应来自同一次检测，避免混用不同日期的报告。
+# 所有体成分指标应来自同一次检测，避免混用不同日期的报告。
 FEATURE_GUIDANCE = {
     "性别": "按本研究编码选择：男性=1，女性=0。",
     "年龄": "以检查日期减出生日期计算周岁，填写完整岁数。",
@@ -243,6 +196,7 @@ FEATURE_GUIDANCE = {
     "饮酒史": "按研究问卷填写：否认饮酒=0；任何有饮酒记录（包括应酬性饮酒）=1。",
     "体重指数": "BMI = 体重(kg) ÷ 身高(m)²。例如70 kg、1.75 m，BMI=22.86 kg/m²。模型训练使用临床身高、体重计算的“体重指数”，不是InBody的“身体质量指数”。",
     "腰臀比": "WHR = 腰围 ÷ 臀围。两者使用相同单位，按原表训练口径保留2位小数；例如腰围85 cm、臀围95 cm，填写0.89。模型训练使用临床腰围、臀围计算的“腰臀比”，不是“腰臀比INBODY”。",
+    "收缩压": "按规范静息后测量收缩压，填写检测报告中的数值，单位为mmHg。",
     "身体总水分": "从同一次生物电阻抗/体成分检测报告读取身体总水分（TBW），按报告数值填写，通常以L表示。",
     "体脂肪": "从同一次体成分报告读取体脂肪量，单位kg。",
     "体脂百分比": "优先读取同一次体成分报告的体脂百分比；无报告值时可用体脂肪量 ÷ 体重 ×100%近似计算。填写百分数点，例如28.3%填写28.3。",
@@ -255,7 +209,36 @@ FEATURE_GUIDANCE = {
     "躯干脂肪百分比": "躯干脂肪量 ÷ 全身体脂肪量；填写0–1小数，例如0.527，而不是52.7。",
     "下肢脂肪百分比": "(右下肢脂肪量 + 左下肢脂肪量) ÷ 全身体脂肪量；填写0–1小数，例如0.282，而不是28.2。",
     "身体总水分/去脂体重": "TBW/FFM = 身体总水分 ÷ 去脂体重。网页填写0–1小数，例如报告为73.4%时填写0.734。",
+    "糖化血红蛋白": "填写检验报告中的糖化血红蛋白百分数，例如5.6%填写5.6。",
+    "总胆固醇": "填写检验报告中的总胆固醇数值，单位为mmol/L。",
+    "甘油三酯": "填写空腹采血检验报告中的甘油三酯数值，单位为mmol/L。",
+    "葡萄糖": (
+        "填写空腹采血检验报告中的葡萄糖数值，单位为mmol/L。网页会自动计算 "
+        "TyG 指数：ln[(甘油三酯×88.5)×(葡萄糖×18)÷2]，无需手填TyG。"
+    ),
 }
+
+
+TRIGLYCERIDE_MMOL_L_TO_MG_DL = 88.5
+GLUCOSE_MMOL_L_TO_MG_DL = 18.0
+
+
+def calculate_tyg(triglyceride_mmol_l, glucose_mmol_l):
+    """Calculate TyG from fasting triglyceride and glucose values in mmol/L."""
+    if triglyceride_mmol_l <= 0 or glucose_mmol_l <= 0:
+        raise ValueError("甘油三酯和葡萄糖必须大于0，才能计算TyG指数。")
+    return float(
+        np.log(
+            (
+                triglyceride_mmol_l
+                * TRIGLYCERIDE_MMOL_L_TO_MG_DL
+                * glucose_mmol_l
+                * GLUCOSE_MMOL_L_TO_MG_DL
+            )
+            / 2.0
+        )
+    )
+
 
 @st.cache_resource(show_spinner=False)
 def load_model_bundle(filename):
@@ -276,11 +259,12 @@ def display_name(feature_name):
     return info["label"] or feature_name
 
 
-def show_cross_sectional_input_guidance(features):
+def show_input_guidance(features):
     with st.expander("📐 必读：所需指标及计算/获取方法", expanded=False):
         has_body_composition = any(
             FEATURE_DICT[name]["cat"] == BODY for name in features
         )
+        has_laboratory = any(FEATURE_DICT[name]["cat"] == LAB for name in features)
         if has_body_composition:
             st.info(
                 "全部体成分指标应来自同一次检测；不要混用不同日期或不同设备的分段数据。"
@@ -292,6 +276,11 @@ def show_cross_sectional_input_guidance(features):
             st.info(
                 "人口学、生活方式、腰围和臀围等指标应沿用原研究体检/问卷口径；"
                 "BMI与腰臀比按下方公式计算。"
+            )
+        if has_laboratory:
+            st.info(
+                "实验室指标应尽量来自同一次空腹采血，并严格按页面标注的单位填写。"
+                "TyG指数由网页根据甘油三酯和葡萄糖自动计算。"
             )
         for category in CATEGORY_ORDER:
             category_features = [
@@ -305,69 +294,56 @@ def show_cross_sectional_input_guidance(features):
                 st.markdown(f"- **{display_name(feature_name)}**：{guidance}")
 
 
-def show_follow_up_definition():
+def show_result_guidance():
     st.markdown(
         """
-        本研究的随访终点为受试者自基线起 **3 年（36个月）内**首次发生代谢异常。
-        在血压、血糖和血脂三类代谢组分中出现 **两类及以上** 异常，即判定为终点发生。
-
-        - **血压异常**：非同日两次血压达到或超过 130/85 mmHg，或出现高血压诊断、降压用药或相应自报信息。
-        - **糖代谢异常**：空腹血糖 ≥5.6 mmol/L，或出现糖尿病前期/2型糖尿病诊断、降糖用药或相应自报信息。
-        - **血脂异常**：TG ≥1.7 mmol/L、HDL-C 男性 <1.0 mmol/L/女性 <1.3 mmol/L、LDL-C ≥3.4 mmol/L、TC ≥5.2 mmol/L，或出现血脂异常诊断、降脂用药或相应自报信息。
+        - **代谢异常风险**：百分比越高，表示模型估算的代谢异常风险越高。
+        - **风险分类**：估计概率达到或超过该模型的固定判别阈值时显示“风险较高”，低于阈值时显示“风险较低”。
+        - **使用范围**：结果仅供风险评估参考，不能替代病史询问、体格检查、实验室检查或医生诊断。
         """
     )
 
 
-def show_cross_sectional_definition():
-    st.markdown(
-        """
-        本研究将下列四项异常中累计 **≥2 项** 定义为代谢异常：
-
-        - 高血压/血压异常
-        - 糖尿病/糖代谢异常
-        - 总胆固醇异常
-        - HDL-C 异常
-
-        横断面模型的因变量采用工作簿中的 **“代谢异常”**（0=否，1=是）。
-        模型输出的是 **当前存在代谢异常的估计概率**，不是未来 3 年发病风险。
-        """
-    )
-
-
-def show_follow_up_result(probability):
-    if probability < 0.30:
-        st.success("**低风险**：该受试者未来 3 年内发生代谢异常的模型估计风险较低。")
-    elif probability < 0.60:
-        st.warning("**中等风险**：该受试者未来 3 年内发生代谢异常的模型估计风险处于中间范围。")
-    else:
-        st.error("**高风险**：该受试者未来 3 年内发生代谢异常的模型估计风险较高。")
-    st.progress(float(np.clip(probability, 0, 1)), text=f"未来 3 年发病概率：{probability:.2%}")
-    st.info(
-        "低（<30%）、中（30%–<60%）、高（≥60%）为网页展示分层，并非统一的临床决策阈值；"
-        "请结合实际诊疗规范解释。"
-    )
-
-
-def show_cross_sectional_result(probability, threshold):
+def show_risk_result(probability, threshold):
     is_positive = probability >= threshold
     if is_positive:
         st.error(
-            f"**筛查阳性倾向**：本次估计概率 {probability:.2%} "
+            f"**代谢异常风险较高**：模型估计概率 {probability:.2%} "
             f"≥ 模型固定判别阈值 {threshold:.1%}。"
         )
     else:
         st.success(
-            f"**筛查阴性倾向**：本次估计概率 {probability:.2%} "
+            f"**代谢异常风险较低**：模型估计概率 {probability:.2%} "
             f"< 模型固定判别阈值 {threshold:.1%}。"
         )
-    st.progress(float(np.clip(probability, 0, 1)), text=f"当前代谢异常估计概率：{probability:.2%}")
-    st.info("该结果用于研究性横断面筛查，不能替代临床诊断。")
+    st.progress(float(np.clip(probability, 0, 1)), text=f"代谢异常风险：{probability:.2%}")
+    st.info("本结果为模型估计，仅供风险评估参考，不能替代临床诊断。")
 
 
-def warn_about_extrapolation(processed_data, metadata):
-    reference = metadata.get("input_reference", {})
+def warn_about_extrapolation(processed_data, metadata, auxiliary_data=None):
+    reference = dict(metadata.get("input_reference", {}))
+    derived_input = metadata.get("derived_input", {})
+    auxiliary_reference = metadata.get("auxiliary_input_reference") or derived_input.get(
+        "auxiliary_input_reference", {}
+    )
+    auxiliary_data = auxiliary_data or {}
+    if auxiliary_reference:
+        if "percentile_1" in auxiliary_reference:
+            for feature_name in auxiliary_data:
+                reference[feature_name] = {
+                    "type": "numeric",
+                    **auxiliary_reference,
+                }
+        else:
+            for feature_name, feature_reference in auxiliary_reference.items():
+                reference[feature_name] = {
+                    "type": "numeric",
+                    **feature_reference,
+                }
+
+    values_to_check = {**processed_data, **auxiliary_data}
     outside = []
-    for feature_name, value in processed_data.items():
+    for feature_name, value in values_to_check.items():
         feature_reference = reference.get(feature_name, {})
         if feature_reference.get("type") != "numeric":
             continue
@@ -385,37 +361,31 @@ selected_config = MODEL_REGISTRY[selected_model_name]
 
 st.sidebar.markdown("---")
 st.sidebar.info(f"正在使用：\n**{selected_model_name}**\n\n{selected_config['description']}")
-with st.sidebar.expander("ℹ️ 查看模型类型说明", expanded=False):
+with st.sidebar.expander("ℹ️ 查看模型适用信息", expanded=False):
     st.markdown(
-        "**随访模型 A–D**：估计未来3年风险。  \n"
-        "**横断面模型 E**：人口学/生活方式、BMI、WHR和体成分。  \n"
-        "**横断面模型 F**：仅人口学/生活方式、BMI和WHR。  \n"
+        "**模型 A**：体格、体成分和实验室检查指标。  \n"
+        "**模型 E**：人口学、生活方式、BMI、WHR和体成分指标。  \n"
+        "**模型 F**：人口学、生活方式、BMI和WHR。  \n"
         "各模型独立运行，并非概率融合。"
     )
 
-st.title("🩺 代谢异常在线预测系统")
-if selected_config["endpoint"] == "follow_up":
-    st.markdown("当前选择的是 **随访预测模型**：评估受试者未来 3 年内发生代谢异常的概率。")
-else:
-    st.markdown("当前选择的是 **横断面判别模型**：评估受试者当前存在代谢异常的概率。")
+st.title("🩺 代谢异常风险在线预测系统")
+st.markdown("请选择模型并填写相应指标，系统将估算代谢异常风险。")
 
-with st.expander("📚 查看本模型的结局定义", expanded=False):
-    if selected_config["endpoint"] == "follow_up":
-        show_follow_up_definition()
-    else:
-        show_cross_sectional_definition()
+with st.expander("💡 结果如何理解", expanded=False):
+    show_result_guidance()
 
-if selected_config["endpoint"] == "cross_sectional":
-    show_cross_sectional_input_guidance(selected_config["features"])
+input_features = selected_config.get("input_features", selected_config["features"])
+show_input_guidance(input_features)
 
 features = selected_config["features"]
-unknown_features = [name for name in features if name not in FEATURE_DICT]
+unknown_features = [name for name in {*features, *input_features} if name not in FEATURE_DICT]
 if unknown_features:
     st.error(f"页面缺少字段定义：{unknown_features}")
     st.stop()
 
 categories = sorted(
-    {FEATURE_DICT[name]["cat"] for name in features},
+    {FEATURE_DICT[name]["cat"] for name in input_features},
     key=lambda category: CATEGORY_ORDER.index(category),
 )
 input_data = {}
@@ -423,11 +393,14 @@ input_data = {}
 with st.form("prediction_form"):
     for category in categories:
         st.markdown(f"### {category}")
-        category_features = [name for name in features if FEATURE_DICT[name]["cat"] == category]
+        category_features = [
+            name for name in input_features if FEATURE_DICT[name]["cat"] == category
+        ]
         col1, col2 = st.columns(2)
         for index, feature_name in enumerate(category_features):
             container = col1 if index % 2 == 0 else col2
             info = FEATURE_DICT[feature_name]
+            input_limits = selected_config.get("input_limits", {}).get(feature_name, {})
             with container:
                 if feature_name in OPTIONS_MAP:
                     choices = OPTIONS_MAP[feature_name]
@@ -441,8 +414,8 @@ with st.form("prediction_form"):
                 else:
                     input_data[feature_name] = st.number_input(
                         display_label(feature_name),
-                        min_value=0.0,
-                        max_value=info["max"],
+                        min_value=input_limits.get("min", info["min"]),
+                        max_value=input_limits.get("max", info["max"]),
                         value=float(info["def"]),
                         step=float(10 ** -info["decimals"]),
                         format=f"%.{info['decimals']}f",
@@ -456,20 +429,33 @@ with st.form("prediction_form"):
 if submitted:
     model_path = APP_DIR / selected_config["file"]
     if not model_path.exists():
-        st.error(f"找不到模型文件：{model_path.name}")
+        st.error("模型暂时无法加载，请联系维护人员。")
         st.stop()
 
     try:
         bundle = load_model_bundle(selected_config["file"])
         model = bundle["model"]
         processed_data = {
-            name: value * FEATURE_DICT[name].get("model_scale", 1.0)
-            for name, value in input_data.items()
+            name: input_data[name] * FEATURE_DICT[name].get("model_scale", 1.0)
+            for name in features
+            if name != "TyG 指数"
         }
+        if "TyG 指数" in features:
+            processed_data["TyG 指数"] = calculate_tyg(
+                input_data["甘油三酯"],
+                input_data["葡萄糖"],
+            )
+            st.session_state["last_computed_tyg"] = processed_data["TyG 指数"]
         model_input = pd.DataFrame([processed_data], columns=features)
 
-        if selected_config["endpoint"] == "cross_sectional":
-            warn_about_extrapolation(processed_data, bundle.get("metadata", {}))
+        auxiliary_data = (
+            {"葡萄糖": input_data["葡萄糖"]} if "葡萄糖" in input_data else None
+        )
+        warn_about_extrapolation(
+            processed_data,
+            bundle.get("metadata", {}),
+            auxiliary_data,
+        )
 
         expected_features = list(getattr(model, "feature_names_in_", features))
         if expected_features != features:
@@ -485,10 +471,7 @@ if submitted:
 
         st.markdown("---")
         st.subheader("📊 预测结果")
-        if selected_config["endpoint"] == "follow_up":
-            show_follow_up_result(probability)
-        else:
-            threshold = float(bundle.get("threshold") or 0.5)
-            show_cross_sectional_result(probability, threshold)
+        threshold = float(bundle.get("threshold") or 0.5)
+        show_risk_result(probability, threshold)
     except Exception as error:
         st.error(f"模型运行出错：{error}")

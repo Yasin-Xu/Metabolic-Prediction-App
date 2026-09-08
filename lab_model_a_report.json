@@ -1,0 +1,658 @@
+{
+  "data_audit": {
+    "source_rows": 3443,
+    "source_unique_participants": 3427,
+    "source_sha256": "86c9d287cfa6b74970ab03a4923576b58fcac984129f1b994242d7d1028c67bf",
+    "raw_missingness_restoration": {
+      "raw_source_file_name": "SS-导出初始数据集20240804.xlsx",
+      "raw_source_sheet": "导出数据2",
+      "raw_source_sha256": "ee18d57b680260ec8295dfd9003374b9f24281c338022ef91adcfd187789fedc",
+      "raw_source_rows": 4816,
+      "raw_source_unique_participants": 4816,
+      "mapped_current_rows": 3443,
+      "mapped_current_unique_participants": 3427,
+      "unmatched_current_participants": 0,
+      "fields": {
+        "糖化血红蛋白": {
+          "reference_missing_rows": 17,
+          "reference_missing_unique_participants": 17,
+          "current_values_restored_to_missing": 17,
+          "reference_nonmissing_rows_verified": 3426,
+          "exact_matches_on_reference_nonmissing": 3426
+        },
+        "总胆固醇": {
+          "reference_missing_rows": 7,
+          "reference_missing_unique_participants": 7,
+          "current_values_restored_to_missing": 7,
+          "reference_nonmissing_rows_verified": 3436,
+          "exact_matches_on_reference_nonmissing": 3436
+        },
+        "甘油三酯": {
+          "reference_missing_rows": 7,
+          "reference_missing_unique_participants": 7,
+          "current_values_restored_to_missing": 7,
+          "reference_nonmissing_rows_verified": 3436,
+          "exact_matches_on_reference_nonmissing": 3436
+        },
+        "葡萄糖": {
+          "reference_missing_rows": 5,
+          "reference_missing_unique_participants": 5,
+          "current_values_restored_to_missing": 5,
+          "reference_nonmissing_rows_verified": 3438,
+          "exact_matches_on_reference_nonmissing": 3438
+        },
+        "收缩压": {
+          "reference_missing_rows": 1,
+          "reference_missing_unique_participants": 1,
+          "current_values_restored_to_missing": 1,
+          "reference_nonmissing_rows_verified": 3442,
+          "exact_matches_on_reference_nonmissing": 3442
+        }
+      },
+      "any_original_missing_rows": 20,
+      "any_original_missing_unique_participants": 20,
+      "post_dedup_missing_counts": {
+        "糖化血红蛋白": 17,
+        "总胆固醇": 7,
+        "甘油三酯": 7,
+        "葡萄糖": 5,
+        "收缩压": 1
+      }
+    },
+    "duplicate_rows": 32,
+    "duplicate_participant_ids": 16,
+    "analysis_rows": 3427,
+    "outcome_positive": 729,
+    "outcome_negative": 2698,
+    "outcome_prevalence": 0.21272249781149694,
+    "outcome_component_columns": [
+      "高血压/血压异常",
+      "糖尿病/糖代谢异常",
+      "甘油三脂异常",
+      "HDL异常"
+    ],
+    "outcome_rule": "four stored component indicators sum >= 2",
+    "outcome_rule_matches": 3427,
+    "outcome_rule_all_rows_match": true,
+    "invalid_sbp_set_missing": 164,
+    "invalid_hba1c_set_missing": 1,
+    "invalid_bmi_set_missing": 0,
+    "invalid_ratio_values_set_missing": 0,
+    "invalid_tyg_source_set_missing": 7,
+    "triglyceride_tyg_spearman": 0.9575649452434741,
+    "feature_missing_counts": {
+      "体重指数": 0,
+      "收缩压": 165,
+      "下肢肌肉比率": 0,
+      "细胞外液总量/身体总水分": 0,
+      "上肢肌肉比率": 0,
+      "下肢脂肪百分比": 0,
+      "糖化血红蛋白": 18,
+      "总胆固醇": 7,
+      "甘油三酯": 7,
+      "TyG 指数": 7
+    },
+    "tyg_formula": "ln[(TG mmol/L × 88.5) × (fasting glucose mmol/L × 18) / 2]",
+    "tyg_reference": {
+      "minimum": 7.268013794252222,
+      "median": 8.857532134515106,
+      "maximum": 11.74116255814739
+    },
+    "glucose_reference": {
+      "minimum": 3.7,
+      "percentile_1": 4.2,
+      "median": 5.3,
+      "percentile_99": 11.0,
+      "maximum": 16.8
+    }
+  },
+  "model_file": "lab_model_a.pkl",
+  "metadata": {
+    "display_name": "模型A（体成分+实验室）",
+    "development_date": "2026-09-08",
+    "software_versions": {
+      "python": "3.11.12",
+      "numpy": "1.26.4",
+      "pandas": "2.2.3",
+      "scikit_learn": "1.6.1",
+      "joblib": "1.4.2"
+    },
+    "source_sha256": "86c9d287cfa6b74970ab03a4923576b58fcac984129f1b994242d7d1028c67bf",
+    "raw_missingness_source": {
+      "file_name": "SS-导出初始数据集20240804.xlsx",
+      "sheet": "导出数据2",
+      "sha256": "ee18d57b680260ec8295dfd9003374b9f24281c338022ef91adcfd187789fedc",
+      "mapping_key": "体检号",
+      "fields": [
+        "糖化血红蛋白",
+        "总胆固醇",
+        "甘油三酯",
+        "葡萄糖",
+        "收缩压"
+      ],
+      "policy": "Restore only the original missing-value mask before deduplication and TyG derivation; never overwrite observed values."
+    },
+    "outcome": "代谢异常",
+    "positive_class": 1,
+    "candidate_features": [
+      "体重指数",
+      "收缩压",
+      "下肢肌肉比率",
+      "细胞外液总量/身体总水分",
+      "上肢肌肉比率",
+      "下肢脂肪百分比",
+      "糖化血红蛋白",
+      "总胆固醇",
+      "甘油三酯",
+      "TyG 指数"
+    ],
+    "derived_input": {
+      "feature": "TyG 指数",
+      "requires": [
+        "甘油三酯",
+        "葡萄糖"
+      ],
+      "formula": "ln[(TG mmol/L × 88.5) × (fasting glucose mmol/L × 18) / 2]",
+      "auxiliary_input_reference": {
+        "minimum": 3.7,
+        "percentile_1": 4.2,
+        "median": 5.3,
+        "percentile_99": 11.0,
+        "maximum": 16.8
+      }
+    },
+    "regularization": {
+      "penalty": "L1 (LASSO)",
+      "solver": "liblinear",
+      "selected_c": 0.0495353520895917
+    },
+    "classification_threshold": 0.2523321635423989,
+    "threshold_method": "maximum Youden J on 10-fold out-of-fold development predictions",
+    "evaluation": {
+      "design": "fixed stratified 80/20 hold-out; preprocessing, tuning, and threshold selection restricted to development data",
+      "random_state": 20260824,
+      "train_n": 2741,
+      "test_n": 686,
+      "test_positive_n": 146,
+      "test_prevalence": 0.21282798833819241,
+      "metrics": {
+        "roc_auc": 0.892453069507864,
+        "average_precision": 0.7541242634016045,
+        "brier_score": 0.09449154226236446,
+        "log_loss": 0.3208867634297295,
+        "accuracy": 0.8309037900874635,
+        "balanced_accuracy": 0.8176306443429731,
+        "sensitivity": 0.7945205479452054,
+        "specificity": 0.8407407407407408,
+        "positive_predictive_value": 0.5742574257425742,
+        "negative_predictive_value": 0.9380165289256198,
+        "f1": 0.6666666666666666,
+        "true_negative": 454.0,
+        "false_positive": 86.0,
+        "false_negative": 30.0,
+        "true_positive": 116.0,
+        "calibration_intercept": -0.07590838061646517,
+        "calibration_slope": 1.118006457313363
+      },
+      "bootstrap_95_intervals": {
+        "roc_auc": {
+          "lower_95": 0.8598085339132505,
+          "upper_95": 0.9226733988320597
+        },
+        "average_precision": {
+          "lower_95": 0.6815424881934778,
+          "upper_95": 0.8165055822337873
+        },
+        "brier_score": {
+          "lower_95": 0.08112078114691382,
+          "upper_95": 0.10866249214532478
+        },
+        "sensitivity": {
+          "lower_95": 0.7290235058764691,
+          "upper_95": 0.8590604026845637
+        },
+        "specificity": {
+          "lower_95": 0.8087080728286583,
+          "upper_95": 0.8707910474809714
+        }
+      }
+    },
+    "selected_terms_in_full_refit": [
+      {
+        "transformed_feature": "TyG 指数",
+        "standardized_coefficient": 1.1504205211963732,
+        "odds_ratio_per_standard_deviation": 3.1595212760340545
+      },
+      {
+        "transformed_feature": "糖化血红蛋白",
+        "standardized_coefficient": 0.961039813872105,
+        "odds_ratio_per_standard_deviation": 2.6144135640353534
+      },
+      {
+        "transformed_feature": "收缩压",
+        "standardized_coefficient": 0.43368742109646813,
+        "odds_ratio_per_standard_deviation": 1.5429365033314562
+      },
+      {
+        "transformed_feature": "甘油三酯",
+        "standardized_coefficient": -0.3047151082266822,
+        "odds_ratio_per_standard_deviation": 0.7373334046934442
+      },
+      {
+        "transformed_feature": "总胆固醇",
+        "standardized_coefficient": -0.20085207077163597,
+        "odds_ratio_per_standard_deviation": 0.8180334336583818
+      },
+      {
+        "transformed_feature": "下肢脂肪百分比",
+        "standardized_coefficient": -0.17494258403204907,
+        "odds_ratio_per_standard_deviation": 0.8395052203903087
+      },
+      {
+        "transformed_feature": "细胞外液总量/身体总水分",
+        "standardized_coefficient": 0.05330075711581136,
+        "odds_ratio_per_standard_deviation": 1.0547468200321632
+      },
+      {
+        "transformed_feature": "体重指数",
+        "standardized_coefficient": 0.0036367176973671556,
+        "odds_ratio_per_standard_deviation": 1.0036433385788317
+      }
+    ],
+    "input_reference": {
+      "体重指数": {
+        "type": "numeric",
+        "median": 24.9641119008438,
+        "percentile_1": 17.752768962012382,
+        "percentile_99": 34.46578600098756,
+        "minimum": 13.6977654336574,
+        "maximum": 51.5518707482993,
+        "missing": 0
+      },
+      "收缩压": {
+        "type": "numeric",
+        "median": 122.0,
+        "percentile_1": 90.0,
+        "percentile_99": 163.0,
+        "minimum": 82.0,
+        "maximum": 205.0,
+        "missing": 165
+      },
+      "下肢肌肉比率": {
+        "type": "numeric",
+        "median": 0.317297297297297,
+        "percentile_1": 0.27930683490090064,
+        "percentile_99": 0.3549661770200379,
+        "minimum": 0.257803468208093,
+        "maximum": 0.412096774193548,
+        "missing": 0
+      },
+      "细胞外液总量/身体总水分": {
+        "type": "numeric",
+        "median": 0.378,
+        "percentile_1": 0.363,
+        "percentile_99": 0.395,
+        "minimum": 0.355,
+        "maximum": 0.409,
+        "missing": 0
+      },
+      "上肢肌肉比率": {
+        "type": "numeric",
+        "median": 0.115876777251185,
+        "percentile_1": 0.08975582536178559,
+        "percentile_99": 0.1321341698914224,
+        "minimum": 0.076173285198556,
+        "maximum": 0.146402877697842,
+        "missing": 0
+      },
+      "下肢脂肪百分比": {
+        "type": "numeric",
+        "median": 0.282208588957055,
+        "percentile_1": 0.235294117647059,
+        "percentile_99": 0.3511340206185563,
+        "minimum": 0.177897574123989,
+        "maximum": 0.526315789473684,
+        "missing": 0
+      },
+      "糖化血红蛋白": {
+        "type": "numeric",
+        "median": 5.6,
+        "percentile_1": 4.7,
+        "percentile_99": 9.192000000000007,
+        "minimum": 3.9,
+        "maximum": 12.2,
+        "missing": 18
+      },
+      "总胆固醇": {
+        "type": "numeric",
+        "median": 5.1850000000000005,
+        "percentile_1": 2.8219,
+        "percentile_99": 7.768099999999999,
+        "minimum": 1.89,
+        "maximum": 11.43,
+        "missing": 7
+      },
+      "甘油三酯": {
+        "type": "numeric",
+        "median": 1.61,
+        "percentile_1": 0.5919,
+        "percentile_99": 5.990499999999997,
+        "minimum": 0.38,
+        "maximum": 20.57,
+        "missing": 7
+      },
+      "TyG 指数": {
+        "type": "numeric",
+        "median": 8.857532134515106,
+        "percentile_1": 7.701554588843947,
+        "percentile_99": 10.476707158542238,
+        "minimum": 7.268013794252222,
+        "maximum": 11.74116255814739,
+        "missing": 7
+      }
+    },
+    "data_quality": {
+      "source_rows": 3443,
+      "source_unique_participants": 3427,
+      "source_sha256": "86c9d287cfa6b74970ab03a4923576b58fcac984129f1b994242d7d1028c67bf",
+      "raw_missingness_restoration": {
+        "raw_source_file_name": "SS-导出初始数据集20240804.xlsx",
+        "raw_source_sheet": "导出数据2",
+        "raw_source_sha256": "ee18d57b680260ec8295dfd9003374b9f24281c338022ef91adcfd187789fedc",
+        "raw_source_rows": 4816,
+        "raw_source_unique_participants": 4816,
+        "mapped_current_rows": 3443,
+        "mapped_current_unique_participants": 3427,
+        "unmatched_current_participants": 0,
+        "fields": {
+          "糖化血红蛋白": {
+            "reference_missing_rows": 17,
+            "reference_missing_unique_participants": 17,
+            "current_values_restored_to_missing": 17,
+            "reference_nonmissing_rows_verified": 3426,
+            "exact_matches_on_reference_nonmissing": 3426
+          },
+          "总胆固醇": {
+            "reference_missing_rows": 7,
+            "reference_missing_unique_participants": 7,
+            "current_values_restored_to_missing": 7,
+            "reference_nonmissing_rows_verified": 3436,
+            "exact_matches_on_reference_nonmissing": 3436
+          },
+          "甘油三酯": {
+            "reference_missing_rows": 7,
+            "reference_missing_unique_participants": 7,
+            "current_values_restored_to_missing": 7,
+            "reference_nonmissing_rows_verified": 3436,
+            "exact_matches_on_reference_nonmissing": 3436
+          },
+          "葡萄糖": {
+            "reference_missing_rows": 5,
+            "reference_missing_unique_participants": 5,
+            "current_values_restored_to_missing": 5,
+            "reference_nonmissing_rows_verified": 3438,
+            "exact_matches_on_reference_nonmissing": 3438
+          },
+          "收缩压": {
+            "reference_missing_rows": 1,
+            "reference_missing_unique_participants": 1,
+            "current_values_restored_to_missing": 1,
+            "reference_nonmissing_rows_verified": 3442,
+            "exact_matches_on_reference_nonmissing": 3442
+          }
+        },
+        "any_original_missing_rows": 20,
+        "any_original_missing_unique_participants": 20,
+        "post_dedup_missing_counts": {
+          "糖化血红蛋白": 17,
+          "总胆固醇": 7,
+          "甘油三酯": 7,
+          "葡萄糖": 5,
+          "收缩压": 1
+        }
+      },
+      "duplicate_rows": 32,
+      "duplicate_participant_ids": 16,
+      "analysis_rows": 3427,
+      "outcome_positive": 729,
+      "outcome_negative": 2698,
+      "outcome_prevalence": 0.21272249781149694,
+      "outcome_component_columns": [
+        "高血压/血压异常",
+        "糖尿病/糖代谢异常",
+        "甘油三脂异常",
+        "HDL异常"
+      ],
+      "outcome_rule": "four stored component indicators sum >= 2",
+      "outcome_rule_matches": 3427,
+      "outcome_rule_all_rows_match": true,
+      "invalid_sbp_set_missing": 164,
+      "invalid_hba1c_set_missing": 1,
+      "invalid_bmi_set_missing": 0,
+      "invalid_ratio_values_set_missing": 0,
+      "invalid_tyg_source_set_missing": 7,
+      "triglyceride_tyg_spearman": 0.9575649452434741,
+      "feature_missing_counts": {
+        "体重指数": 0,
+        "收缩压": 165,
+        "下肢肌肉比率": 0,
+        "细胞外液总量/身体总水分": 0,
+        "上肢肌肉比率": 0,
+        "下肢脂肪百分比": 0,
+        "糖化血红蛋白": 18,
+        "总胆固醇": 7,
+        "甘油三酯": 7,
+        "TyG 指数": 7
+      },
+      "tyg_formula": "ln[(TG mmol/L × 88.5) × (fasting glucose mmol/L × 18) / 2]",
+      "tyg_reference": {
+        "minimum": 7.268013794252222,
+        "median": 8.857532134515106,
+        "maximum": 11.74116255814739
+      },
+      "glucose_reference": {
+        "minimum": 3.7,
+        "percentile_1": 4.2,
+        "median": 5.3,
+        "percentile_99": 11.0,
+        "maximum": 16.8
+      }
+    },
+    "interpretation_warning": "Several specified predictors are measured at the same examination and overlap with the recorded outcome components. Performance therefore describes same-dataset classification and must not be interpreted as prospective incidence prediction. Triglyceride and TyG are strongly correlated, so their conditional coefficients must not be interpreted as independent or causal effects.",
+    "deployment_refit": "Hyperparameter and threshold frozen, then coefficients refit on all eligible participants."
+  },
+  "tuning": {
+    "selection_rule": "10-fold cross-validated negative log loss (binomial deviance) with one-standard-error rule",
+    "c_grid": [
+      0.001,
+      0.0012154742500762859,
+      0.0014773776525985112,
+      0.001795714494371641,
+      0.0021826447283974874,
+      0.0026529484644318944,
+      0.0032245905452963947,
+      0.003919406774847221,
+      0.004763938010401341,
+      0.005790443980602483,
+      0.007038135554931555,
+      0.008554672535565685,
+      0.0103979841848149,
+      0.012638482029342977,
+      0.015361749466718281,
+      0.018671810912919196,
+      0.022695105366946685,
+      0.027585316176291827,
+      0.033529241492495566,
+      0.040753929658717755,
+      0.0495353520895917,
+      0.060208944933361284,
+      0.07318242219076174,
+      0.08895134973108232,
+      0.10811807510766078,
+      0.13141473626117553,
+      0.1597312280060254,
+      0.19414919457438817,
+      0.23598334667821938,
+      0.2868316813342009,
+      0.34863652276780843,
+      0.4237587160604063,
+      0.5150678076168121,
+      0.6260516572014815,
+      0.7609496685459876,
+      0.9249147277217336,
+      1.1242100350620863,
+      1.3664483492953243,
+      1.6608827826277148,
+      2.018760254679039,
+      2.4537511066398165,
+      2.982471286216888,
+      3.6251170499885315,
+      4.406236427773573,
+      5.3556669177068965,
+      6.509675230458164,
+      7.912342618981318,
+      9.617248711152964,
+      11.689518164985776,
+      14.208308325339209,
+      17.269832906594324,
+      20.991037201085547,
+      25.514065200312874,
+      31.011689265747755,
+      37.69390975388364,
+      45.81597669054491,
+      55.68813990945267,
+      67.68750009458527,
+      82.27241341700457,
+      100.0
+    ],
+    "mean_cv_negative_log_loss": [
+      -0.6931471805599453,
+      -0.6931471805599453,
+      -0.6786298138093716,
+      -0.629676632422816,
+      -0.5825326698415336,
+      -0.5342899789621921,
+      -0.4929554118931262,
+      -0.46120431555047786,
+      -0.4369191261948176,
+      -0.41635066504081497,
+      -0.39911244007577723,
+      -0.3857351093766008,
+      -0.37540944256950354,
+      -0.3674651637069277,
+      -0.36113014526684395,
+      -0.3557168315243656,
+      -0.3514663340337808,
+      -0.3483770996570935,
+      -0.3461352639190967,
+      -0.34460008898819217,
+      -0.3427577284852742,
+      -0.3409550950615943,
+      -0.33952058961260484,
+      -0.3382311304675626,
+      -0.33700097064875206,
+      -0.3360799468323378,
+      -0.33540700746765706,
+      -0.3349427085167699,
+      -0.33464468190459323,
+      -0.33445842114053026,
+      -0.33434317779430806,
+      -0.3342744575636519,
+      -0.3342347364168751,
+      -0.3342077697493427,
+      -0.3341938855928875,
+      -0.33418373347226643,
+      -0.3341758270532925,
+      -0.33417138487193454,
+      -0.33416972606045986,
+      -0.3341699882782485,
+      -0.3341712154980867,
+      -0.3341729099324341,
+      -0.334174766497383,
+      -0.33417690570874514,
+      -0.33417860050615017,
+      -0.3341801762092941,
+      -0.3341815723697227,
+      -0.3341827885774649,
+      -0.3341838349788901,
+      -0.33418473074184896,
+      -0.3341854855982257,
+      -0.3341860812390286,
+      -0.33418661355483553,
+      -0.3341870580411709,
+      -0.33418742815791963,
+      -0.3341877356597224,
+      -0.3341879906787112,
+      -0.3341882018633099,
+      -0.334188376540256,
+      -0.33418852088105366
+    ],
+    "standard_error_cv_negative_log_loss": [
+      0.0,
+      0.0,
+      3.1704011522994446e-05,
+      7.590887682046822e-05,
+      0.0005168738843557978,
+      0.0013180958494497116,
+      0.002255907529055541,
+      0.0031187300170188084,
+      0.003908962190425527,
+      0.004683624028775377,
+      0.005450316105583579,
+      0.0061670812282506905,
+      0.006836494042156841,
+      0.007458522779173886,
+      0.007987530117457915,
+      0.008402807613730369,
+      0.00881996869059388,
+      0.009188083621601147,
+      0.009517040268981258,
+      0.009738667197513345,
+      0.009853747875679568,
+      0.00982196704864581,
+      0.00980533241521029,
+      0.00980695888317747,
+      0.009863118567042063,
+      0.009917903980645706,
+      0.00996446985331724,
+      0.010009229798585607,
+      0.010057108399164297,
+      0.010100551659956887,
+      0.010138925107585347,
+      0.010173994336863603,
+      0.010203678822495234,
+      0.010228544383142985,
+      0.010248875985591583,
+      0.010263016039065391,
+      0.010275005867265328,
+      0.01028503384095815,
+      0.01029338420870551,
+      0.010300311750034312,
+      0.010306059076466978,
+      0.010310812585565909,
+      0.01031474124252941,
+      0.010317963038677392,
+      0.010320650170526996,
+      0.010322860721332363,
+      0.010324683737704688,
+      0.010326186452760672,
+      0.010327424723926715,
+      0.010328442196315906,
+      0.010329282335237206,
+      0.010329977339435607,
+      0.010330546920257463,
+      0.010331015807393281,
+      0.01033140176132087,
+      0.010331719423050077,
+      0.010331980857789507,
+      0.010332196005215639,
+      0.010332373051986504,
+      0.010332518739580814
+    ],
+    "best_mean_score_c": 1.6608827826277148,
+    "best_mean_negative_log_loss": -0.33416972606045986,
+    "one_se_score_floor": -0.3444631102691654,
+    "selected_c": 0.0495353520895917,
+    "selected_mean_negative_log_loss": -0.3427577284852742
+  }
+}

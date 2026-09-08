@@ -1,4 +1,5 @@
-import sys
+import hashlib
+import math
 import unittest
 from pathlib import Path
 
@@ -7,85 +8,341 @@ from streamlit.testing.v1 import AppTest
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(PROJECT_DIR))
 
-from train_cross_sectional_models import MODEL_SPECS  # noqa: E402
+MODEL_A_FEATURES = [
+    "体重指数",
+    "收缩压",
+    "下肢肌肉比率",
+    "细胞外液总量/身体总水分",
+    "上肢肌肉比率",
+    "下肢脂肪百分比",
+    "糖化血红蛋白",
+    "总胆固醇",
+    "甘油三酯",
+    "TyG 指数",
+]
+
+MODEL_E_FEATURES = [
+    "性别",
+    "年龄",
+    "运动频率",
+    "吸烟史",
+    "饮酒史",
+    "体重指数",
+    "腰臀比",
+    "身体总水分",
+    "体脂肪",
+    "体脂百分比",
+    "上肢肌肉比率",
+    "躯干肌肉量比率",
+    "下肢肌肉比率",
+    "细胞外液总量/身体总水分",
+    "上肢细胞外液总量/身体总水分",
+    "上肢脂肪百分比",
+    "躯干脂肪百分比",
+    "下肢脂肪百分比",
+    "身体总水分/去脂体重",
+]
+
+MODEL_F_FEATURES = [
+    "性别",
+    "年龄",
+    "运动频率",
+    "吸烟史",
+    "饮酒史",
+    "体重指数",
+    "腰臀比",
+]
+
+EXPECTED_MODELS = {
+    "模型A（体成分+实验室）": ("lab_model_a.pkl", MODEL_A_FEATURES),
+    "模型E（人口学+体成分）": (
+        "cross_sectional_bodycomp_lasso.pkl",
+        MODEL_E_FEATURES,
+    ),
+    "模型F（人口学基础）": ("cross_sectional_basic_lasso.pkl", MODEL_F_FEATURES),
+}
+
+FIXED_EF_ARTIFACTS = {
+    "cross_sectional_bodycomp_lasso.pkl": {
+        "sha256": "c73212d89ca0e58034aaa3aeab531982fffe04bb2a22c540656ebb4ac555e840",
+        "threshold": 0.25326707743792803,
+    },
+    "cross_sectional_basic_lasso.pkl": {
+        "sha256": "e2ebd0f53d622908c8c437db9380ae0da3b629ec0391bce430b4292b5bcc0c29",
+        "threshold": 0.23258499078219594,
+    },
+}
+
+FORBIDDEN_VISIBLE_TEXT = (
+    "未来3年",
+    "未来 3 年",
+    "未来三年",
+    "横断面",
+    "随访",
+    "筛查",
+    "LASSO",
+    "SVM",
+    "XGBoost",
+    "Logistic",
+)
 
 
-class CrossSectionalArtifactTests(unittest.TestCase):
-    def test_artifacts_match_training_specs(self):
-        for spec in MODEL_SPECS.values():
-            with self.subTest(model=spec["display_name"]):
-                bundle = joblib.load(PROJECT_DIR / spec["filename"])
+def file_sha256(path):
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(64 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def visible_text(app):
+    pieces = []
+    element_types = (
+        "title",
+        "header",
+        "subheader",
+        "caption",
+        "markdown",
+        "text",
+        "info",
+        "warning",
+        "success",
+        "error",
+        "exception",
+        "progress",
+        "button",
+        "selectbox",
+        "number_input",
+        "expander",
+    )
+    for element_type in element_types:
+        for element in app.get(element_type):
+            for attribute in ("label", "value", "text", "help", "message"):
+                try:
+                    value = getattr(element, attribute, None)
+                except Exception:
+                    continue
+                if value is not None and not callable(value):
+                    pieces.append(str(value))
+            try:
+                options = getattr(element, "options", None)
+            except Exception:
+                options = None
+            if options is not None:
+                pieces.extend(str(option) for option in options)
+    return "\n".join(pieces)
+
+
+class ArtifactTests(unittest.TestCase):
+    def test_all_three_artifacts_have_the_expected_feature_order(self):
+        for model_name, (filename, expected_features) in EXPECTED_MODELS.items():
+            with self.subTest(model=model_name):
+                bundle = joblib.load(PROJECT_DIR / filename)
                 self.assertIn("model", bundle)
                 self.assertIn("threshold", bundle)
                 self.assertGreater(bundle["threshold"], 0)
                 self.assertLess(bundle["threshold"], 1)
                 self.assertEqual(
                     list(bundle["model"].feature_names_in_),
-                    list(spec["features"]),
+                    expected_features,
                 )
                 self.assertEqual(list(bundle["model"].classes_), [0, 1])
 
+    def test_models_e_and_f_artifacts_and_thresholds_are_unchanged(self):
+        for filename, expected in FIXED_EF_ARTIFACTS.items():
+            with self.subTest(filename=filename):
+                path = PROJECT_DIR / filename
+                self.assertEqual(file_sha256(path), expected["sha256"])
+                bundle = joblib.load(path)
+                self.assertAlmostEqual(
+                    float(bundle["threshold"]),
+                    expected["threshold"],
+                    places=14,
+                )
 
-class StreamlitSmokeTests(unittest.TestCase):
+
+class StreamlitTests(unittest.TestCase):
+    def make_app(self):
+        return AppTest.from_file(str(PROJECT_DIR / "app.py")).run(timeout=30)
+
+    def assert_no_forbidden_visible_text(self, app):
+        rendered = visible_text(app)
+        for forbidden in FORBIDDEN_VISIBLE_TEXT:
+            with self.subTest(forbidden=forbidden):
+                self.assertNotIn(forbidden.casefold(), rendered.casefold())
+
+    def test_selector_only_lists_models_a_e_and_f(self):
+        app = self.make_app()
+        self.assertEqual(
+            list(app.sidebar.selectbox[0].options),
+            list(EXPECTED_MODELS),
+        )
+        self.assertEqual(
+            [item.label for item in app.expander],
+            [
+                "💡 结果如何理解",
+                "📐 必读：所需指标及计算/获取方法",
+                "ℹ️ 查看模型适用信息",
+            ],
+        )
+        self.assert_no_forbidden_visible_text(app)
+
     def test_all_registered_models_predict_from_default_form_values(self):
-        app = AppTest.from_file(str(PROJECT_DIR / "app.py")).run(timeout=30)
-        model_names = list(app.sidebar.selectbox[0].options)
-        self.assertEqual(len(model_names), 6)
-        for method_name in ("LASSO", "SVM", "XGBoost", "Logistic"):
-            self.assertFalse(any(method_name in name for name in model_names))
-
-        for model_name in model_names:
+        for model_name in EXPECTED_MODELS:
             with self.subTest(model=model_name):
-                app = AppTest.from_file(str(PROJECT_DIR / "app.py")).run(timeout=30)
+                app = self.make_app()
                 app.sidebar.selectbox[0].select(model_name).run(timeout=30)
+                self.assert_no_forbidden_visible_text(app)
+
                 app.button[0].click().run(timeout=30)
                 self.assertEqual(len(app.exception), 0)
-                self.assertEqual(len(app.error), 0)
+                self.assertFalse(
+                    any(
+                        "模型运行出错" in str(item.value)
+                        or "模型暂时无法加载" in str(item.value)
+                        for item in app.error
+                    )
+                )
+                result_messages = [
+                    str(item.value) for item in [*app.success, *app.error]
+                ]
+                self.assertTrue(
+                    any(
+                        "代谢异常风险较高" in message
+                        or "代谢异常风险较低" in message
+                        for message in result_messages
+                    )
+                )
+                self.assertTrue(
+                    any("模型固定判别阈值" in message for message in result_messages)
+                )
+                self.assertTrue(
+                    any("不能替代临床诊断" in str(item.value) for item in app.info)
+                )
+                self.assert_no_forbidden_visible_text(app)
 
-    def test_cross_sectional_quality_and_validation_details_are_hidden(self):
-        app = AppTest.from_file(str(PROJECT_DIR / "app.py")).run(timeout=30)
-        app.sidebar.selectbox[0].select(
-            "横断面模型E（人口学+体成分）"
-        ).run(timeout=30)
-
-        expander_labels = [item.label for item in app.expander]
-        self.assertNotIn("🧭 横断面模型说明与内部验证表现", expander_labels)
-        self.assertFalse(any("质控" in str(item.value) for item in app.warning))
-        self.assertEqual(len(app.metric), 0)
-        rendered_markdown = "\n".join(str(item.value) for item in app.markdown)
-        self.assertIn("总胆固醇异常", rendered_markdown)
-        self.assertNotIn("甘油三酯异常", rendered_markdown)
-
+    def test_model_a_calculates_tyg_from_triglyceride_and_glucose(self):
+        app = self.make_app()
+        number_inputs = {item.label: item for item in app.number_input}
+        self.assertFalse(any("TyG" in label for label in number_inputs))
+        triglyceride_input = next(
+            item for label, item in number_inputs.items() if label.startswith("甘油三酯")
+        )
+        glucose_input = next(
+            item for label, item in number_inputs.items() if label.startswith("葡萄糖")
+        )
+        triglyceride_input.set_value(2.0)
+        glucose_input.set_value(6.0)
+        app.run(timeout=30)
         app.button[0].click().run(timeout=30)
-        expander_labels = [item.label for item in app.expander]
-        self.assertNotIn("查看该横断面模型的内部验证表现", expander_labels)
-        self.assertEqual(len(app.metric), 0)
 
-    def test_basic_model_uses_one_fixed_threshold_for_both_result_branches(self):
-        model_name = "横断面模型F（人口学基础）"
+        expected_tyg = math.log((2.0 * 88.5) * (6.0 * 18.0) / 2.0)
+        self.assertAlmostEqual(
+            app.session_state["last_computed_tyg"],
+            expected_tyg,
+            places=12,
+        )
+        self.assertEqual(len(app.exception), 0)
 
-        negative_app = AppTest.from_file(str(PROJECT_DIR / "app.py")).run(timeout=30)
-        negative_app.sidebar.selectbox[0].select(model_name).run(timeout=30)
-        negative_app.button[0].click().run(timeout=30)
-        self.assertIn("< 模型固定判别阈值 23.3%", negative_app.success[0].value)
+    def test_model_a_input_boundaries_are_enforced_and_accepted(self):
+        expected_limits = {
+            "体重指数": (10.0, 70.0),
+            "收缩压": (80.0, 250.0),
+            "下肢肌肉比率": (0.0001, 1.0),
+            "上肢肌肉比率": (0.0001, 1.0),
+            "ECW/TBW": (0.001, 1.0),
+            "下肢脂肪比率": (0.0001, 1.0),
+            "糖化血红蛋白": (3.0, 20.0),
+            "甘油三酯": (0.01, 50.0),
+            "总胆固醇": (0.01, 20.0),
+            "葡萄糖": (0.01, 50.0),
+        }
 
-        positive_app = AppTest.from_file(str(PROJECT_DIR / "app.py")).run(timeout=30)
-        positive_app.sidebar.selectbox[0].select(model_name).run(timeout=30)
-        positive_app.number_input[0].set_value(80)
-        positive_app.number_input[1].set_value(40)
-        positive_app.number_input[2].set_value(1.20)
-        positive_app.run(timeout=30)
-        positive_app.button[0].click().run(timeout=30)
-        self.assertIn("≥ 模型固定判别阈值 23.3%", positive_app.error[0].value)
+        for boundary_index in (0, 1):
+            with self.subTest(boundary="minimum" if boundary_index == 0 else "maximum"):
+                app = self.make_app()
+                for label_prefix, limits in expected_limits.items():
+                    item = next(
+                        number_input
+                        for number_input in app.number_input
+                        if number_input.label.startswith(label_prefix)
+                    )
+                    self.assertEqual(item.min, limits[0])
+                    self.assertEqual(item.max, limits[1])
+                    item.set_value(limits[boundary_index])
+                app.run(timeout=30)
+                app.button[0].click().run(timeout=30)
+                self.assertEqual(len(app.exception), 0)
+                self.assertFalse(
+                    any("模型运行出错" in str(item.value) for item in app.error)
+                )
 
-        bodycomp_app = AppTest.from_file(str(PROJECT_DIR / "app.py")).run(timeout=30)
-        bodycomp_app.sidebar.selectbox[0].select(
-            "横断面模型E（人口学+体成分）"
-        ).run(timeout=30)
-        bodycomp_app.button[0].click().run(timeout=30)
-        self.assertIn("< 模型固定判别阈值 25.3%", bodycomp_app.success[0].value)
+    def test_models_e_and_f_keep_their_existing_input_ranges(self):
+        for model_name in ("模型E（人口学+体成分）", "模型F（人口学基础）"):
+            with self.subTest(model=model_name):
+                app = self.make_app()
+                app.sidebar.selectbox[0].select(model_name).run(timeout=30)
+                bmi = next(
+                    item for item in app.number_input if item.label.startswith("体重指数")
+                )
+                self.assertEqual((bmi.min, bmi.max), (0.0, 100.0))
+                bmi.set_value(5.0)
+
+                if model_name.startswith("模型E"):
+                    ratio_inputs = [
+                        item
+                        for item in app.number_input
+                        if "比率" in item.label or "ECW/TBW" in item.label
+                    ]
+                    self.assertTrue(ratio_inputs)
+                    for item in ratio_inputs:
+                        self.assertEqual((item.min, item.max), (0.0, 1.0))
+                app.run(timeout=30)
+                app.button[0].click().run(timeout=30)
+                self.assertEqual(len(app.exception), 0)
+                self.assertFalse(
+                    any("模型运行出错" in str(item.value) for item in app.error)
+                )
+
+    def test_model_a_glucose_uses_artifact_reference_for_extrapolation_warning(self):
+        bundle = joblib.load(PROJECT_DIR / "lab_model_a.pkl")
+        auxiliary_reference = bundle["metadata"]["derived_input"][
+            "auxiliary_input_reference"
+        ]
+        glucose_value = min(50.0, auxiliary_reference["percentile_99"] + 1.0)
+        self.assertGreater(glucose_value, auxiliary_reference["percentile_99"])
+
+        app = self.make_app()
+        glucose_input = next(
+            item for item in app.number_input if item.label.startswith("葡萄糖")
+        )
+        glucose_input.set_value(glucose_value)
+        app.run(timeout=30)
+        app.button[0].click().run(timeout=30)
+        self.assertTrue(
+            any(
+                "葡萄糖（训练数据1%–99%" in str(item.value)
+                for item in app.warning
+            )
+        )
+
+    def test_models_e_and_f_show_their_fixed_thresholds(self):
+        expected_threshold_text = {
+            "模型E（人口学+体成分）": "模型固定判别阈值 25.3%",
+            "模型F（人口学基础）": "模型固定判别阈值 23.3%",
+        }
+        for model_name, threshold_text in expected_threshold_text.items():
+            with self.subTest(model=model_name):
+                app = self.make_app()
+                app.sidebar.selectbox[0].select(model_name).run(timeout=30)
+                app.button[0].click().run(timeout=30)
+                result_messages = [
+                    str(item.value) for item in [*app.success, *app.error]
+                ]
+                self.assertTrue(
+                    any(threshold_text in message for message in result_messages)
+                )
 
 
 if __name__ == "__main__":
