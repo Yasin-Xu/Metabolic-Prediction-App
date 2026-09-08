@@ -22,33 +22,19 @@ MODEL_A_FEATURES = [
     "TyG 指数",
 ]
 
-MODEL_E_FEATURES = [
+MODEL_B_FEATURES = [
     "性别",
     "年龄",
-    "运动频率",
-    "吸烟史",
     "饮酒史",
     "体重指数",
     "腰臀比",
-    "身体总水分",
-    "体脂肪",
-    "体脂百分比",
-    "上肢肌肉比率",
-    "躯干肌肉量比率",
-    "下肢肌肉比率",
-    "细胞外液总量/身体总水分",
-    "上肢细胞外液总量/身体总水分",
     "上肢脂肪百分比",
-    "躯干脂肪百分比",
     "下肢脂肪百分比",
     "身体总水分/去脂体重",
 ]
 
-MODEL_F_FEATURES = [
-    "性别",
+MODEL_C_FEATURES = [
     "年龄",
-    "运动频率",
-    "吸烟史",
     "饮酒史",
     "体重指数",
     "腰臀比",
@@ -56,22 +42,19 @@ MODEL_F_FEATURES = [
 
 EXPECTED_MODELS = {
     "模型A（体成分+实验室）": ("lab_model_a.pkl", MODEL_A_FEATURES),
-    "模型E（人口学+体成分）": (
-        "cross_sectional_bodycomp_lasso.pkl",
-        MODEL_E_FEATURES,
-    ),
-    "模型F（人口学基础）": ("cross_sectional_basic_lasso.pkl", MODEL_F_FEATURES),
+    "模型B（精简体成分）": ("model_b.pkl", MODEL_B_FEATURES),
+    "模型C（人口学基础）": ("model_c.pkl", MODEL_C_FEATURES),
 }
 
-FIXED_EF_ARTIFACTS = {
-    "cross_sectional_bodycomp_lasso.pkl": {
-        "sha256": "c73212d89ca0e58034aaa3aeab531982fffe04bb2a22c540656ebb4ac555e840",
-        "threshold": 0.25326707743792803,
-    },
-    "cross_sectional_basic_lasso.pkl": {
-        "sha256": "e2ebd0f53d622908c8c437db9380ae0da3b629ec0391bce430b4292b5bcc0c29",
-        "threshold": 0.23258499078219594,
-    },
+FIXED_A_ARTIFACT = {
+    "filename": "lab_model_a.pkl",
+    "sha256": "9e65cf48730dcb36b6eb3b0fccd5c8f957520b6a0781ca3aa1d9a8402e65f5a5",
+    "threshold": 0.2523321635423989,
+}
+
+EXPECTED_NEW_THRESHOLDS = {
+    "model_b.pkl": 0.2525796984249065,
+    "model_c.pkl": 0.2343787989709484,
 }
 
 FORBIDDEN_VISIBLE_TEXT = (
@@ -149,17 +132,25 @@ class ArtifactTests(unittest.TestCase):
                 )
                 self.assertEqual(list(bundle["model"].classes_), [0, 1])
 
-    def test_models_e_and_f_artifacts_and_thresholds_are_unchanged(self):
-        for filename, expected in FIXED_EF_ARTIFACTS.items():
+    def test_models_b_and_c_have_the_expected_thresholds(self):
+        for filename, expected_threshold in EXPECTED_NEW_THRESHOLDS.items():
             with self.subTest(filename=filename):
-                path = PROJECT_DIR / filename
-                self.assertEqual(file_sha256(path), expected["sha256"])
-                bundle = joblib.load(path)
+                bundle = joblib.load(PROJECT_DIR / filename)
                 self.assertAlmostEqual(
                     float(bundle["threshold"]),
-                    expected["threshold"],
+                    expected_threshold,
                     places=14,
                 )
+
+    def test_model_a_artifact_and_threshold_are_unchanged(self):
+        path = PROJECT_DIR / FIXED_A_ARTIFACT["filename"]
+        self.assertEqual(file_sha256(path), FIXED_A_ARTIFACT["sha256"])
+        bundle = joblib.load(path)
+        self.assertAlmostEqual(
+            float(bundle["threshold"]),
+            FIXED_A_ARTIFACT["threshold"],
+            places=14,
+        )
 
 
 class StreamlitTests(unittest.TestCase):
@@ -172,7 +163,7 @@ class StreamlitTests(unittest.TestCase):
             with self.subTest(forbidden=forbidden):
                 self.assertNotIn(forbidden.casefold(), rendered.casefold())
 
-    def test_selector_only_lists_models_a_e_and_f(self):
+    def test_selector_only_lists_models_a_b_and_c(self):
         app = self.make_app()
         self.assertEqual(
             list(app.sidebar.selectbox[0].options),
@@ -187,6 +178,17 @@ class StreamlitTests(unittest.TestCase):
             ],
         )
         self.assert_no_forbidden_visible_text(app)
+
+    def test_old_model_artifacts_are_not_registered(self):
+        source = (PROJECT_DIR / "app.py").read_text(encoding="utf-8")
+        self.assertNotIn("cross_sectional_bodycomp_lasso.pkl", source)
+        self.assertNotIn("cross_sectional_basic_lasso.pkl", source)
+        app = self.make_app()
+        self.assertFalse(
+            {"模型E（人口学+体成分）", "模型F（人口学基础）"}.intersection(
+                app.sidebar.selectbox[0].options
+            )
+        )
 
     def test_all_registered_models_predict_from_default_form_values(self):
         for model_name in EXPECTED_MODELS:
@@ -278,26 +280,33 @@ class StreamlitTests(unittest.TestCase):
                     any("模型运行出错" in str(item.value) for item in app.error)
                 )
 
-    def test_models_e_and_f_keep_their_existing_input_ranges(self):
-        for model_name in ("模型E（人口学+体成分）", "模型F（人口学基础）"):
+    def test_models_b_and_c_use_the_configured_input_ranges(self):
+        expected_limits = {
+            "模型B（精简体成分）": {
+                "年龄": (14.0, 100.0),
+                "体重指数": (10.0, 70.0),
+                "腰臀比": (0.5, 1.5),
+                "上肢脂肪比率": (0.0, 0.4),
+                "下肢脂肪比率": (0.05, 0.65),
+                "身体总水分/去脂体重": (0.60, 0.85),
+            },
+            "模型C（人口学基础）": {
+                "年龄": (14.0, 100.0),
+                "体重指数": (10.0, 70.0),
+                "腰臀比": (0.5, 1.5),
+            },
+        }
+        for model_name, model_limits in expected_limits.items():
             with self.subTest(model=model_name):
                 app = self.make_app()
                 app.sidebar.selectbox[0].select(model_name).run(timeout=30)
-                bmi = next(
-                    item for item in app.number_input if item.label.startswith("体重指数")
-                )
-                self.assertEqual((bmi.min, bmi.max), (0.0, 100.0))
-                bmi.set_value(5.0)
-
-                if model_name.startswith("模型E"):
-                    ratio_inputs = [
-                        item
-                        for item in app.number_input
-                        if "比率" in item.label or "ECW/TBW" in item.label
-                    ]
-                    self.assertTrue(ratio_inputs)
-                    for item in ratio_inputs:
-                        self.assertEqual((item.min, item.max), (0.0, 1.0))
+                for label_prefix, limits in model_limits.items():
+                    item = next(
+                        number_input
+                        for number_input in app.number_input
+                        if number_input.label.startswith(label_prefix)
+                    )
+                    self.assertEqual((item.min, item.max), limits)
                 app.run(timeout=30)
                 app.button[0].click().run(timeout=30)
                 self.assertEqual(len(app.exception), 0)
@@ -327,10 +336,10 @@ class StreamlitTests(unittest.TestCase):
             )
         )
 
-    def test_models_e_and_f_show_their_fixed_thresholds(self):
+    def test_models_b_and_c_show_their_fixed_thresholds(self):
         expected_threshold_text = {
-            "模型E（人口学+体成分）": "模型固定判别阈值 25.3%",
-            "模型F（人口学基础）": "模型固定判别阈值 23.3%",
+            "模型B（精简体成分）": "模型固定判别阈值 25.3%",
+            "模型C（人口学基础）": "模型固定判别阈值 23.4%",
         }
         for model_name, threshold_text in expected_threshold_text.items():
             with self.subTest(model=model_name):
@@ -342,6 +351,24 @@ class StreamlitTests(unittest.TestCase):
                 ]
                 self.assertTrue(
                     any(threshold_text in message for message in result_messages)
+                )
+
+    def test_default_probabilities_match_the_frozen_artifacts(self):
+        expected_result_text = {
+            "模型A（体成分+实验室）": "模型估计概率 10.78% < 模型固定判别阈值 25.2%",
+            "模型B（精简体成分）": "模型估计概率 20.70% < 模型固定判别阈值 25.3%",
+            "模型C（人口学基础）": "模型估计概率 19.95% < 模型固定判别阈值 23.4%",
+        }
+        for model_name, expected_text in expected_result_text.items():
+            with self.subTest(model=model_name):
+                app = self.make_app()
+                app.sidebar.selectbox[0].select(model_name).run(timeout=30)
+                app.button[0].click().run(timeout=30)
+                result_messages = [
+                    str(item.value) for item in [*app.success, *app.error]
+                ]
+                self.assertTrue(
+                    any(expected_text in message for message in result_messages)
                 )
 
 
